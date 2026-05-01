@@ -10,11 +10,11 @@ Three architectures are compared:
 
 | Architecture | Provider | Largest variant |
 |---|---|---|
-| `gemma4` | Google DeepMind | gemma3:27b (Ollama) / gemma-3-27b-it (Together AI) |
-| `llama3.1` | Meta | llama3.1:405b (Ollama) / Meta-Llama-3.1-405B-Instruct-Turbo (Together AI) |
-| `qwen3` | Alibaba Cloud | qwen3:235b (Ollama) / Qwen3-235B-A22B (Together AI) |
+| `gemma4` | Google DeepMind | gemma4:31b-cloud (Ollama) / gemma-3-27b-it (Together AI) |
+| `llama3.1` | Meta | llama3.1:8b (Ollama) / Meta-Llama-3.1-405B-Instruct-Turbo (Together AI) |
+| `qwen3` | Alibaba Cloud | qwen3:8b (Ollama) / Qwen3-235B-A22B (Together AI) |
 
-Each architecture runs **n = 325** paraphrasing sequences using the same statement sample (for comparability with human participants) and independently sampled temperatures drawn uniformly from [0.01, 1.0]. The most effective and efficient architecture will be selected for the human vs. LLM comparison.
+Each architecture runs **n = 325** paraphrasing sequences using the same statement sample (for comparability with human participants) and independently sampled temperatures drawn uniformly from [0.1, 1.0]. The most effective and efficient architecture will be selected for the human vs. LLM comparison.
 
 ---
 
@@ -73,18 +73,59 @@ Edit `.env`:
 
 ```dotenv
 # "ollama" for local inference, "together" for Together AI cloud
-LLM_PROVIDER=together
-TOGETHER_API_KEY=your_key_here
+LLM_PROVIDER=ollama
 ```
 
 **Together AI** is recommended for the full-size variants (405B, 235B). Sign up at <https://api.together.ai>.
 
-For **Ollama** (local), install from <https://ollama.com> and pull the models you need:
+For **Together AI** instead of local Ollama, set:
+
+```dotenv
+LLM_PROVIDER=together
+TOGETHER_API_KEY=your_key_here
+```
+
+### 4 - Local Ollama setup and model management
+
+Install and start Ollama:
 
 ```bash
-ollama pull llama3.1:405b
-ollama pull qwen3:235b
-ollama pull gemma3:27b
+brew install --cask ollama
+open -a Ollama
+which ollama
+ollama --version
+```
+
+Pull only the local models you need for testing:
+
+```bash
+ollama pull llama3.1:8b
+ollama pull qwen3:8b
+ollama pull gemma4:31b-cloud
+```
+
+List local models:
+
+```bash
+ollama list
+```
+
+Where models are stored on macOS:
+
+```text
+~/.ollama/models
+```
+
+Remove one model when no longer needed:
+
+```bash
+ollama rm llama3.1:8b
+```
+
+Remove all local Ollama model data (careful):
+
+```bash
+rm -rf ~/.ollama/models
 ```
 
 ---
@@ -98,6 +139,9 @@ python src/app.py
 # Run a single architecture
 python src/app.py --architecture llama3.1
 
+# Quick local smoke test (10 sequences, max 2 attempts each)
+python src/app.py --architecture llama3.1 --test
+
 # Override number of sequences (e.g. quick smoke-test)
 python src/app.py --architecture llama3.1 --n-sequences 5
 
@@ -106,6 +150,7 @@ python src/app.py --architecture llama3.1 --start-index 47
 ```
 
 Results are written to `results/<architecture>_<timestamp>.csv`.
+In `--test` mode, output is written to `results/test/<architecture>_<timestamp>.csv`.
 
 ---
 

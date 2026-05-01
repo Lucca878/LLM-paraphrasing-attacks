@@ -39,7 +39,7 @@ ARCH_SEEDS = {
 # Attack parameters
 # ---------------------------------------------------------------------------
 MAX_ATTEMPTS       = 10
-TEMPERATURE_MIN    = 0.01
+TEMPERATURE_MIN    = 0.1
 TEMPERATURE_MAX    = 1.0
 N_ATTACK_SEQUENCES = 325   # total sequences per architecture, to match human n
 RANDOM_SEED        = 42    # for statement sampling (same statements across archs)
