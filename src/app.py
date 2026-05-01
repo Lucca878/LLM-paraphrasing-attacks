@@ -15,6 +15,8 @@ from config import (
     N_ATTACK_SEQUENCES,
     RANDOM_SEED,
     DATASET_PATH,
+    MAX_LENGTH_REPROMPTS,
+    WORD_TOLERANCE,
 )
 from dao import AttackSequence, AttemptResult
 from llm_client import call_llm
@@ -24,6 +26,9 @@ from utility import (
     sample_statements,
     generate_attack_prompt,
     generate_strategy_prompt,
+    build_length_reprompt_prompt,
+    count_words,
+    is_within_word_limit,
     label_flipped,
     init_results_csv,
     append_sequence_to_csv,
@@ -59,10 +64,30 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
     sequence.session_start = start_iso
 
     for _ in range(max_attempts):
-        prompt        = generate_attack_prompt(sequence)
+        prompt = generate_attack_prompt(sequence)
+        effective_prompt = prompt
         attempt_start = time.time()
-        rewrite_text  = call_llm(architecture, prompt, temperature, SYSTEM_PROMPT_ATTACK)
-        duration_ms   = int((time.time() - attempt_start) * 1000)
+        rewrite_text = call_llm(architecture, effective_prompt, temperature, SYSTEM_PROMPT_ATTACK)
+
+        # Enforce length constraint by reprompting within the same attempt.
+        for _ in range(MAX_LENGTH_REPROMPTS):
+            if is_within_word_limit(sequence.original_text, rewrite_text, tolerance=WORD_TOLERANCE):
+                break
+            effective_prompt = build_length_reprompt_prompt(
+                sequence.original_text,
+                rewrite_text,
+                tolerance=WORD_TOLERANCE,
+            )
+            rewrite_text = call_llm(architecture, effective_prompt, temperature, SYSTEM_PROMPT_ATTACK)
+
+        duration_ms = int((time.time() - attempt_start) * 1000)
+
+        if not is_within_word_limit(sequence.original_text, rewrite_text, tolerance=WORD_TOLERANCE):
+            print(
+                "    warning=length_constraint_not_met "
+                f"orig_words={count_words(sequence.original_text)} "
+                f"rewrite_words={count_words(rewrite_text)}"
+            )
 
         label, confidence = classify(rewrite_text)
         attempt = AttemptResult(
@@ -70,7 +95,7 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
             label=label,
             confidence=confidence,
             duration_ms=duration_ms,
-            prompt=prompt,
+            prompt=effective_prompt,
         )
         sequence.attempts.append(attempt)
 

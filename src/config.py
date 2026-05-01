@@ -43,6 +43,8 @@ TEMPERATURE_MIN    = 0.01
 TEMPERATURE_MAX    = 1.0
 N_ATTACK_SEQUENCES = 325   # total sequences per architecture, to match human n
 RANDOM_SEED        = 42    # for statement sampling (same statements across archs)
+WORD_TOLERANCE     = 20    # rewritten text must stay within +/- this many words
+MAX_LENGTH_REPROMPTS = 3   # retry count within the same attempt for length violations
 
 # ---------------------------------------------------------------------------
 # Paths

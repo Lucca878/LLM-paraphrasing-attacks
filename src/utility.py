@@ -6,7 +6,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from dotenv import load_dotenv
 
-from config import MODEL_PATH, MAX_ATTEMPTS, RESULTS_DIR
+from config import MODEL_PATH, MAX_ATTEMPTS, RESULTS_DIR, WORD_TOLERANCE
 from dao import AttackSequence, AttemptResult
 
 # Resolve .env relative to project root (one level above src/)
@@ -56,6 +56,33 @@ def sample_statements(df, n, seed):
     return df.iloc[indices].reset_index(drop=True)
 
 
+def count_words(text):
+    return len(text.split())
+
+
+def is_within_word_limit(original_text, rewritten_text, tolerance=WORD_TOLERANCE):
+    original_count = count_words(original_text)
+    rewritten_count = count_words(rewritten_text)
+    min_words = max(1, original_count - tolerance)
+    max_words = original_count + tolerance
+    return min_words <= rewritten_count <= max_words
+
+
+def build_length_reprompt_prompt(original_text, candidate_text, tolerance=WORD_TOLERANCE):
+    original_count = count_words(original_text)
+    candidate_count = count_words(candidate_text)
+    min_words = max(1, original_count - tolerance)
+    max_words = original_count + tolerance
+
+    return (
+        "Your previous rewrite violated the word-length constraint. Rewrite again.\n"
+        f"Original statement ({original_count} words): {original_text}\n"
+        f"Your previous rewrite ({candidate_count} words): {candidate_text}\n"
+        f"Required word range: {min_words} to {max_words} words (inclusive).\n"
+        "Keep the original meaning, keep it natural and grammatical, and output only the rewritten statement."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Prompt generation
 # ---------------------------------------------------------------------------
@@ -96,7 +123,7 @@ def generate_attack_prompt(sequence):
         f"so that it appears more {target_label_str} to the machine learning classifier. "
         "Maintain the original statement's meaning, ensure it is grammatically correct, and appears "
         "natural (i.e., that it is readable, coherent, and fluent). "
-        f"Ensure that the version is within +-20 words of the length of the original statement "
+        f"Ensure that the version is within +- {WORD_TOLERANCE} words of the length of the original statement "
         f"({original_length} words).\n"
         "Your modification:"
     )
