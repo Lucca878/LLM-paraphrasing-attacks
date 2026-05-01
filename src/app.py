@@ -19,7 +19,7 @@ from config import (
     WORD_TOLERANCE,
 )
 from dao import AttackSequence, AttemptResult
-from llm_client import call_llm
+from llm_client import call_llm, words_to_token_range
 from utility import (
     classify,
     load_dataset,
@@ -33,6 +33,7 @@ from utility import (
     init_results_csv,
     append_sequence_to_csv,
 )
+from config import WORD_TOLERANCE
 
 load_dotenv()
 
@@ -40,6 +41,18 @@ SYSTEM_PROMPT_ATTACK = (
     "Only give me the requested paraphrase and nothing else. "
     "Do not add any explanation, preamble, or commentary."
 )
+
+def _attack_system_prompt(original_text: str) -> str:
+    """System prompt that hard-enforces the word-length constraint for the current statement."""
+    n = count_words(original_text)
+    lo = max(1, n - WORD_TOLERANCE)
+    hi = n + WORD_TOLERANCE
+    return (
+        "Only give me the requested paraphrase and nothing else. "
+        "Do not add any explanation, preamble, or commentary. "
+        f"Your response MUST be between {lo} and {hi} words (the original has {n} words). "
+        "Strictly respect this word count — do not go shorter or longer."
+    )
 SYSTEM_PROMPT_STRATEGY = (
     "Be concise. Describe only the strategy used. "
     "Do not add any introduction or filler text."
@@ -63,13 +76,20 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
     )
     sequence.session_start = start_iso
 
+    # Token range derived from original statement length — passed to every attack call
+    orig_word_count = count_words(sequence.original_text)
+    min_tok, max_tok = words_to_token_range(orig_word_count, WORD_TOLERANCE)
+
     for _ in range(max_attempts):
         prompt = generate_attack_prompt(sequence)
         effective_prompt = prompt
+        attack_sys = _attack_system_prompt(sequence.original_text)
         attempt_start = time.time()
-        rewrite_text = call_llm(architecture, effective_prompt, temperature, SYSTEM_PROMPT_ATTACK)
+        rewrite_text = call_llm(architecture, effective_prompt, temperature, attack_sys,
+                                min_tokens=min_tok, max_tokens=max_tok)
 
         # Enforce length constraint by reprompting within the same attempt.
+        length_reprompt_used = ""
         for _ in range(MAX_LENGTH_REPROMPTS):
             if is_within_word_limit(sequence.original_text, rewrite_text, tolerance=WORD_TOLERANCE):
                 break
@@ -78,7 +98,9 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
                 rewrite_text,
                 tolerance=WORD_TOLERANCE,
             )
-            rewrite_text = call_llm(architecture, effective_prompt, temperature, SYSTEM_PROMPT_ATTACK)
+            length_reprompt_used = effective_prompt
+            rewrite_text = call_llm(architecture, effective_prompt, temperature, attack_sys,
+                                    min_tokens=min_tok, max_tokens=max_tok)
 
         duration_ms = int((time.time() - attempt_start) * 1000)
 
@@ -95,7 +117,8 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
             label=label,
             confidence=confidence,
             duration_ms=duration_ms,
-            prompt=effective_prompt,
+            prompt=prompt,  # always store the original attack prompt, not a reprompt
+            length_reprompt=length_reprompt_used,
         )
         sequence.attempts.append(attempt)
 
@@ -103,8 +126,9 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
             break
 
     # Ask the LLM to reflect on its strategy (matches human study design)
-    strategy_prompt    = generate_strategy_prompt(sequence)
-    sequence.strategies = call_llm(
+    strategy_prompt          = generate_strategy_prompt(sequence)
+    sequence.strategy_prompt = strategy_prompt
+    sequence.strategies      = call_llm(
         architecture, strategy_prompt, STRATEGY_TEMPERATURE, SYSTEM_PROMPT_STRATEGY
     )
 
@@ -145,11 +169,11 @@ def main():
     if args.test:
         args.n_sequences = 10
 
-    test_max_attempts = 2 if args.test else MAX_ATTEMPTS
+    test_max_attempts = 3 if args.test else MAX_ATTEMPTS
     results_subdir    = "test" if args.test else None
 
     if args.test:
-        print("[TEST MODE] 10 sequences, max 2 attempts each, output -> results/test/")
+        print("[TEST MODE] 10 sequences, max 3 attempts each, output -> results/test/")
 
     timestamp  = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
     df         = load_dataset(DATASET_PATH)

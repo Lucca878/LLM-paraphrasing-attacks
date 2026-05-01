@@ -175,8 +175,9 @@ def _build_columns():
             f"rewrite{i}_confidence",
             f"rewrite{i}_duration_ms",
             f"rewrite{i}_prompt",
+            f"rewrite{i}_reprompt",
         ]
-    cols += ["strategies", "received_at", "attack_modality", "llm_architecture", "temperature"]
+    cols += ["strategies", "strategy_prompt", "received_at", "attack_modality", "llm_architecture", "temperature"]
     return cols
 
 
@@ -191,6 +192,8 @@ def init_results_csv(architecture, timestamp, subdir=None):
 
 def append_sequence_to_csv(path, sequence):
     """Append one completed AttackSequence as a row to the results CSV."""
+    # Build row in the same order as _build_columns() so pandas writes
+    # values into the correct columns when appending without a header.
     row = {
         "session_id":          sequence.session_id,
         "session_start":       sequence.session_start,
@@ -202,11 +205,6 @@ def append_sequence_to_csv(path, sequence):
         "original_confidence": round(sequence.original_confidence, 2),
         "attempts_used":       len(sequence.attempts),
         "max_attempts":        MAX_ATTEMPTS,
-        "strategies":          sequence.strategies,
-        "received_at":         sequence.session_end,
-        "attack_modality":     "llm",
-        "llm_architecture":    sequence.llm_architecture,
-        "temperature":         round(sequence.temperature, 4),
     }
 
     for i, attempt in enumerate(sequence.attempts, 1):
@@ -215,6 +213,7 @@ def append_sequence_to_csv(path, sequence):
         row[f"rewrite{i}_confidence"]  = round(attempt.confidence, 2)
         row[f"rewrite{i}_duration_ms"] = attempt.duration_ms
         row[f"rewrite{i}_prompt"]      = attempt.prompt
+        row[f"rewrite{i}_reprompt"]    = attempt.length_reprompt
 
     for i in range(len(sequence.attempts) + 1, MAX_ATTEMPTS + 1):
         row[f"rewrite{i}_text"]        = ""
@@ -222,5 +221,14 @@ def append_sequence_to_csv(path, sequence):
         row[f"rewrite{i}_confidence"]  = ""
         row[f"rewrite{i}_duration_ms"] = ""
         row[f"rewrite{i}_prompt"]      = ""
+        row[f"rewrite{i}_reprompt"]    = ""
+
+    # Trailing columns — must come after the rewrite columns (matches _build_columns order)
+    row["strategies"]       = sequence.strategies
+    row["strategy_prompt"]  = sequence.strategy_prompt
+    row["received_at"]      = sequence.session_end
+    row["attack_modality"]  = "llm"
+    row["llm_architecture"] = sequence.llm_architecture
+    row["temperature"]      = round(sequence.temperature, 4)
 
     pd.DataFrame([row]).to_csv(path, mode="a", index=False, header=False)

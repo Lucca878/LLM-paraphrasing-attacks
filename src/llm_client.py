@@ -36,11 +36,24 @@ def _clean_response(text: str) -> str:
     return text.strip()
 
 
+# Approximate token count from word count (English prose: ~1.3 tokens/word)
+_TOKENS_PER_WORD = 1.3
+
+
+def words_to_token_range(word_count: int, tolerance: int) -> tuple[int, int]:
+    """Convert a word-count ± tolerance into a (min_tokens, max_tokens) pair."""
+    lo = max(1, word_count - tolerance)
+    hi = word_count + tolerance
+    return int(lo * _TOKENS_PER_WORD), int(hi * _TOKENS_PER_WORD)
+
+
 def call_llm(
     architecture: str,
     prompt: str,
     temperature: float,
     system_prompt: str = None,
+    min_tokens: int = None,
+    max_tokens: int = None,
 ) -> str:
     """Call the LLM and return the cleaned text response."""
     client = _build_client()
@@ -51,9 +64,11 @@ def call_llm(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    response = client.chat.completions.create(
-        model=model_id,
-        messages=messages,
-        temperature=temperature,
-    )
+    kwargs = dict(model=model_id, messages=messages, temperature=temperature)
+    if max_tokens is not None:
+        kwargs["max_tokens"] = max_tokens
+    # min_tokens is not reliably supported across providers; lower bound is
+    # enforced via system prompt and reprompt loop instead.
+
+    response = client.chat.completions.create(**kwargs)
     return _clean_response(response.choices[0].message.content)

@@ -1,12 +1,13 @@
 class AttemptResult:
     """Result of a single paraphrase attempt within one attack sequence."""
 
-    def __init__(self, text: str, label: int, confidence: float, duration_ms: int, prompt: str):
+    def __init__(self, text: str, label: int, confidence: float, duration_ms: int, prompt: str, length_reprompt: str = ""):
         self.text = text
         self.label = label            # 0 = deceptive, 1 = truthful
         self.confidence = confidence  # percentage (0–100)
         self.duration_ms = duration_ms
         self.prompt = prompt
+        self.length_reprompt = length_reprompt  # last reprompt used if word limit was violated, else ""
 
 
 class AttackSequence:
@@ -34,3 +35,4 @@ class AttackSequence:
         self.total_duration_ms = 0
         self.attempts: list = []   # list[AttemptResult]
         self.strategies = ""
+        self.strategy_prompt = ""

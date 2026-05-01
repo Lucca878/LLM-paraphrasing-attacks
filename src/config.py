@@ -1,4 +1,9 @@
 import os
+from dotenv import load_dotenv
+
+# Load .env from project root before reading any env vars
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(_ROOT, ".env"))
 
 # ---------------------------------------------------------------------------
 # LLM provider
@@ -15,16 +20,16 @@ LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama")
 # ---------------------------------------------------------------------------
 LLM_ARCHITECTURES = {
     "gemma4": {
-        "ollama_model":   "gemma4:31b-cloud",                        # local via Ollama (cloud-offloaded)
-        "together_model": "google/gemma-3-27b-it",                  # update to gemma-4 ID when listed on Together AI
+        "ollama_model":   "gemma4:31b-cloud",
+        "together_model": "google/gemma-4-31B-it",                          # serverless
     },
     "llama3.1": {
-        "ollama_model":   "llama3.1:8b",                            # local (CPU/GPU)
-        "together_model": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",  # cloud (405B)
+        "ollama_model":   "llama3.1:8b",
+        "together_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",        # serverless (Llama 3.3 70B, closest available)
     },
     "qwen3": {
-        "ollama_model":   "qwen3:8b",                               # local (CPU/GPU)
-        "together_model": "Qwen/Qwen3-235B-A22B",                   # cloud (235B MoE)
+        "ollama_model":   "qwen3:8b",
+        "together_model": "Qwen/Qwen3-235B-A22B-Instruct-2507-tput",        # serverless
     },
 }
 
