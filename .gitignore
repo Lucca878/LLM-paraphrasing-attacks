@@ -1,0 +1,22 @@
+# Secrets
+.env
+
+# Model weights (large binary files)
+model/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+env/
+
+# macOS
+.DS_Store
+
+# Results (opt-in: commit only if desired)
+results/*.csv
