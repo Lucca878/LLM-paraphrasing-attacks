@@ -37,27 +37,29 @@ from config import WORD_TOLERANCE
 
 load_dotenv()
 
-SYSTEM_PROMPT_ATTACK = (
-    "Only give me the requested paraphrase and nothing else. "
-    "Do not add any explanation, preamble, or commentary."
-)
-
 def _attack_system_prompt(original_text: str) -> str:
     """System prompt that hard-enforces the word-length constraint for the current statement."""
     n = count_words(original_text)
     lo = max(1, n - WORD_TOLERANCE)
     hi = n + WORD_TOLERANCE
     return (
+        "You are a participant in a study called 'Rewriting truths and lies'. "
+        "Your task is to interact with an AI model that has been trained to identify statements "
+        "written by human participants as truthful or deceptive. "
         "Only give me the requested paraphrase and nothing else. "
         "Do not add any explanation, preamble, or commentary. "
         f"Your response MUST be between {lo} and {hi} words (the original has {n} words). "
         "Strictly respect this word count — do not go shorter or longer."
     )
 SYSTEM_PROMPT_STRATEGY = (
-    "Be concise. Describe only the strategy used. "
-    "Do not add any introduction or filler text."
+    "You are a participant in a study called 'Rewriting truths and lies'. "
+    "Your task was to interact with an AI model that has been trained to identify statements "
+    "written by human participants as truthful or deceptive. "
+    "You just completed the main task and are now answering a follow-up question about your approach. "
+    "Describe only the strategy used. "
+    "Output exactly 2 to 3 complete sentences. "
+    "Do not add any explanation, preamble, or commentary. "
 )
-STRATEGY_TEMPERATURE = 0.3
 
 
 def run_attack_sequence(architecture, statement_row, temperature, max_attempts=MAX_ATTEMPTS):
@@ -96,6 +98,9 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
             effective_prompt = build_length_reprompt_prompt(
                 sequence.original_text,
                 rewrite_text,
+                target_label_str={0: "deceptive", 1: "truthful"}[1 - sequence.original_label],
+                attempts_used=len(sequence.attempts),
+                max_attempts=max_attempts,
                 tolerance=WORD_TOLERANCE,
             )
             length_reprompt_used = effective_prompt
@@ -129,7 +134,7 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
     strategy_prompt          = generate_strategy_prompt(sequence)
     sequence.strategy_prompt = strategy_prompt
     sequence.strategies      = call_llm(
-        architecture, strategy_prompt, STRATEGY_TEMPERATURE, SYSTEM_PROMPT_STRATEGY
+        architecture, strategy_prompt, sequence.temperature, SYSTEM_PROMPT_STRATEGY
     )
 
     sequence.session_end      = datetime.datetime.utcnow().isoformat() + "Z"

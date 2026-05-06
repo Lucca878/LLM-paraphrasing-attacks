@@ -23,8 +23,8 @@ LLM_ARCHITECTURES = {
         "ollama_model":   "gemma4:31b-cloud",
         "together_model": "google/gemma-4-31B-it",                          # serverless
     },
-    "llama3.1": {
-        "ollama_model":   "llama3.1:8b",
+    "llama3.3": {
+        "ollama_model":   "llama3.3:8b",
         "together_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",        # serverless (Llama 3.3 70B, closest available)
     },
     "qwen3": {
@@ -36,7 +36,7 @@ LLM_ARCHITECTURES = {
 # Architecture-specific RNG seeds (deterministic but unique per architecture)
 ARCH_SEEDS = {
     "gemma4":   43,
-    "llama3.1": 44,
+    "llama3.3": 44,
     "qwen3":    45,
 }
 

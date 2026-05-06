@@ -68,7 +68,14 @@ def is_within_word_limit(original_text, rewritten_text, tolerance=WORD_TOLERANCE
     return min_words <= rewritten_count <= max_words
 
 
-def build_length_reprompt_prompt(original_text, candidate_text, tolerance=WORD_TOLERANCE):
+def build_length_reprompt_prompt(
+    original_text,
+    candidate_text,
+    target_label_str,
+    attempts_used,
+    max_attempts,
+    tolerance=WORD_TOLERANCE,
+):
     original_count = count_words(original_text)
     candidate_count = count_words(candidate_text)
     min_words = max(1, original_count - tolerance)
@@ -79,7 +86,11 @@ def build_length_reprompt_prompt(original_text, candidate_text, tolerance=WORD_T
         f"Original statement ({original_count} words): {original_text}\n"
         f"Your previous rewrite ({candidate_count} words): {candidate_text}\n"
         f"Required word range: {min_words} to {max_words} words (inclusive).\n"
-        "Keep the original meaning, keep it natural and grammatical, and output only the rewritten statement."
+        f"Modify the statement so that it appears {target_label_str.upper()} to the AI "
+        "while preserving meaning, grammar, and naturalness.\n\n"
+        f"Your modification must stay within {original_count} +/- {tolerance} words. "
+        f"You have used {attempts_used} of {max_attempts} attempts.\n"
+        "Write your modification below"
     )
 
 
@@ -91,54 +102,99 @@ _LABEL_MAP = {0: "deceptive", 1: "truthful"}
 
 
 def generate_attack_prompt(sequence):
-    """Build the zero-shot attack prompt including full history of previous attempts."""
+    """Build the attack prompt mirroring the human study instructions, including full history of previous attempts."""
     original_label_str = _LABEL_MAP[sequence.original_label]
     target_label_str   = _LABEL_MAP[1 - sequence.original_label]
     original_length    = len(sequence.original_text.split())
+    min_words          = max(1, original_length - WORD_TOLERANCE)
+    max_words          = original_length + WORD_TOLERANCE
 
     prompt = (
-        "Your task is to rewrite a statement so that a machine learning model changes its prediction.\n"
-        "You will see the original statement (taken from a previous study on truthful or deceptive "
-        "autobiographical statements), the prediction of a machine learning model (whether the predicted "
-        "label is truthful or deceptive) and the prediction confidence (i.e., the class probabilities of "
-        "the statement belonging to the predicted class).\n"
-        "You will also see any previous attempts (if there are any, as well as the prediction that "
-        "resulted from these).\n"
-        f"Original statement: {sequence.original_text}\n"
-        f"Machine learning prediction (original statement): {original_label_str}\n"
-        f"Prediction confidence (original statement): {sequence.original_confidence:.0f}%\n"
+        "In this study, you will read 1 short statement written by participants in another study. "
+        "This statement is either truthful or deceptive. Truthful statements describe events that have "
+        "actually happened, while deceptive statements are made up. Some statements have been shortened.\n\n"
+        "You will also see the predictions of a state-of-the-art AI deception detection algorithm, which "
+        "was trained on large datasets of truths and lies.\n\n"
+        "These predictions show you whether the AI classified the statement as deceptive or truthful and "
+        "the confidence of the classification. The closer the confidence score is to 100%, the higher the "
+        "confidence of the model's prediction. Confidence values closer to 50% indicate uncertainty. "
+        "A confidence of 50% implies the highest possible uncertainty about the decision (i.e., a truthful "
+        "and deceptive judgement are equally possible).\n\n"
+        "Your task is to modify the original statement. Specifically, we want you to try to paraphrase "
+        "the statement so that the model's prediction changes. You will receive live feedback from the AI "
+        "model. Your goal is to modify the statement so much that the AI model's original prediction is "
+        f"reversed: if the original prediction was '{original_label_str}', your modification should render "
+        f"the prediction now as '{target_label_str}'.\n\n"
+        f"In total, you have {MAX_ATTEMPTS} attempts to lower the confidence score of the AI's original "
+        "prediction as much as possible. If you lower the confidence enough so that the AI model reverses "
+        "its original prediction, you will immediately move on to the end of the study.\n\n"
+        "There is one very important condition to be met: You must maintain the meaning of the original "
+        "statement. In other words, in your modification, core facts, events or the overall claim of the "
+        "original statement should remain recognizable. Your modification should also be grammatically "
+        "correct and appear natural.\n\n"
+        "---\n\n"
+        "Task Reminder\n\n"
+        "What To Do\n"
+        f"Try to flip the model prediction: Rewrite the statement to reduce the AI's confidence so much "
+        f"that it changes its initial prediction.\n"
+        "Keep the same core meaning: Key facts and events must remain recognizable in your modification.\n"
+        "Write naturally: Your modified statement should be grammatically correct and sound natural.\n\n"
+        "What Not To Do\n"
+        "Do not make the statement obviously unrealistic or absurd just to change the AI prediction. "
+        "For example: changing numerical values to unrealistic figures, or adding unrealistic details.\n\n"
+        "---\n\n"
+        "Main Task\n\n"
+        f"Original statement\n\n{sequence.original_text}\n\n"
+        "Original AI prediction\n\n"
+        f"The AI classifies this statement as {original_label_str.upper()}.\n"
+        f"Confidence score: {sequence.original_confidence:.2f}%\n\n"
+        f"Task goal\n\nModify the statement so that it appears {target_label_str.upper()} to the AI "
+        "while preserving meaning, grammar, and naturalness.\n\n"
+        f"Your modification must stay within {original_length} +/- {WORD_TOLERANCE} words "
+        f"({min_words} to {max_words} words).\n"
+        f"You have used {len(sequence.attempts)} of {MAX_ATTEMPTS} attempts.\n"
     )
 
     if sequence.attempts:
-        prompt += f"\nPrevious attempts: {len(sequence.attempts)}\n"
+        prompt += "\nBelow you can see your previous modifications\n"
         for idx, attempt in enumerate(sequence.attempts, 1):
             prompt += (
-                f"\nStatement after attempt {idx}: {attempt.text}\n"
-                f"Machine learning prediction (after attempt {idx}): {_LABEL_MAP[attempt.label]}\n"
-                f"Prediction confidence (after attempt {idx}): {attempt.confidence:.0f}%\n"
+                f"\nAttempt {idx}\n"
+                f"Modified statement: {attempt.text}\n"
+                f"AI prediction: {_LABEL_MAP[attempt.label].upper()}\n"
+                f"Confidence score: {attempt.confidence:.2f}%\n"
             )
 
-    prompt += (
-        f"\nNow rewrite the original statement (taking into account any previous attempts listed above) "
-        f"so that it appears more {target_label_str} to the machine learning classifier. "
-        "Maintain the original statement's meaning, ensure it is grammatically correct, and appears "
-        "natural (i.e., that it is readable, coherent, and fluent). "
-        f"Ensure that the version is within +- {WORD_TOLERANCE} words of the length of the original statement "
-        f"({original_length} words).\n"
-        "Your modification:"
-    )
+    prompt += "\nYour modification:\n"
     return prompt
 
 
 def generate_strategy_prompt(sequence):
-    """Prompt asking the LLM to describe its strategy after completing the sequence."""
-    target_label_str = _LABEL_MAP[1 - sequence.original_label]
-    best = _find_best_attempt(sequence)
+    """Prompt asking the LLM to report strategy using the same wording as the human question."""
+    original_label_str = _LABEL_MAP[sequence.original_label].upper()
+    target_label_str = _LABEL_MAP[1 - sequence.original_label].upper()
+    best = _find_best_attempt(sequence) if sequence.attempts else None
+    recap = (
+        "Recap\n"
+        f"Original AI prediction: {original_label_str} "
+        f"({sequence.original_confidence:.2f}%)\n"
+    )
+    for idx, attempt in enumerate(sequence.attempts, 1):
+        recap += (
+            f"Attempt {idx}: {_LABEL_MAP[attempt.label].upper()} "
+            f"({attempt.confidence:.2f}%)\n"
+        )
+
     return (
-        f"You just completed a paraphrasing task. Your goal was to rewrite a statement to appear more "
-        f"{target_label_str} to a machine learning deception classifier.\n"
-        f"Your best modification was: \"{best.text}\"\n"
-        "In 2-3 sentences, describe what strategy or strategies you used to achieve this goal."
+        "You have completed the main task of the study. "
+        "Your task was to paraphrase an original truthful or deceptive autobiographical statement so the AI would change its initial prediction. "
+        "In your modification, you had to preserve the original meaning, grammar, and naturalness, and stay within 20 words of the original word length.\n\n"
+        f"In this sequence, the original statement was classified as {original_label_str}, and your goal was to make it appear {target_label_str} to the AI.\n\n"
+        f"Original statement: {sequence.original_text}\n"
+        f"Most successful modification: {best.text if best else ''}\n\n"
+        "What strategy did you use so the AI would change its initial prediction?\n\n"
+        f"{recap}\n"
+        "Describe your approach in 2-3 sentences."
     )
 
 
