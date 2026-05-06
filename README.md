@@ -10,8 +10,8 @@ Three architectures are compared:
 
 | Architecture | Provider | Largest variant |
 |---|---|---|
-| `gemma4` | Google DeepMind | gemma4:31b-cloud (Ollama) / gemma-3-27b-it (Together AI) |
-| `llama3.1` | Meta | llama3.1:8b (Ollama) / Meta-Llama-3.1-405B-Instruct-Turbo (Together AI) |
+| `gemma4` | Google DeepMind | gemma4:31b-cloud (Ollama) / google/gemma-4-31B-it (Together AI) |
+| `llama3.3` | Meta | llama3.3:8b (Ollama) / meta-llama/Llama-3.3-70B-Instruct-Turbo (Together AI) |
 | `qwen3` | Alibaba Cloud | qwen3:8b (Ollama) / Qwen3-235B-A22B (Together AI) |
 
 Each architecture runs **n = 325** paraphrasing sequences using the same statement sample (for comparability with human participants) and independently sampled temperatures drawn uniformly from [0.1, 1.0]. The most effective and efficient architecture will be selected for the human vs. LLM comparison.
@@ -76,7 +76,7 @@ Edit `.env`:
 LLM_PROVIDER=ollama
 ```
 
-**Together AI** is recommended for the full-size variants (405B, 235B). Sign up at <https://api.together.ai>.
+**Together AI** is recommended for the larger hosted variants (31B, 70B, 235B). Sign up at <https://api.together.ai>.
 
 For **Together AI** instead of local Ollama, set:
 
@@ -99,7 +99,7 @@ ollama --version
 Pull only the local models you need for testing:
 
 ```bash
-ollama pull llama3.1:8b
+ollama pull llama3.3:8b
 ollama pull qwen3:8b
 ollama pull gemma4:31b-cloud
 ```
@@ -119,7 +119,7 @@ Where models are stored on macOS:
 Remove one model when no longer needed:
 
 ```bash
-ollama rm llama3.1:8b
+ollama rm llama3.3:8b
 ```
 
 Remove all local Ollama model data (careful):
@@ -137,16 +137,16 @@ rm -rf ~/.ollama/models
 python src/app.py
 
 # Run a single architecture
-python src/app.py --architecture llama3.1
+python src/app.py --architecture llama3.3
 
-# Quick local smoke test (10 sequences, max 2 attempts each)
-python src/app.py --architecture llama3.1 --test
+# Quick local smoke test (10 sequences, max 3 attempts each)
+python src/app.py --architecture llama3.3 --test
 
 # Override number of sequences (e.g. quick smoke-test)
-python src/app.py --architecture llama3.1 --n-sequences 5
+python src/app.py --architecture llama3.3 --n-sequences 5
 
 # Resume after a crash (skip the first 47 completed sequences)
-python src/app.py --architecture llama3.1 --start-index 47
+python src/app.py --architecture llama3.3 --start-index 47
 ```
 
 Results are written to `results/<architecture>_<timestamp>.csv`.
@@ -161,7 +161,7 @@ The CSV mirrors the human `all_sessions.csv` structure. Human-only columns (prol
 | Column | Description |
 |---|---|
 | `attack_modality` | Always `"llm"` |
-| `llm_architecture` | `gemma4` / `llama3.1` / `qwen3` |
+| `llm_architecture` | `gemma4` / `llama3.3` / `qwen3` |
 | `temperature` | Sampled temperature for this sequence |
 | `rewrite{1-10}_prompt` | Full prompt sent to the LLM for each attempt |
 

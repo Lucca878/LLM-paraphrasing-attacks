@@ -96,11 +96,9 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
             if is_within_word_limit(sequence.original_text, rewrite_text, tolerance=WORD_TOLERANCE):
                 break
             effective_prompt = build_length_reprompt_prompt(
+                effective_prompt,
                 sequence.original_text,
                 rewrite_text,
-                target_label_str={0: "deceptive", 1: "truthful"}[1 - sequence.original_label],
-                attempts_used=len(sequence.attempts),
-                max_attempts=max_attempts,
                 tolerance=WORD_TOLERANCE,
             )
             length_reprompt_used = effective_prompt

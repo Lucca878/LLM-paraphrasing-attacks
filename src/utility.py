@@ -69,11 +69,9 @@ def is_within_word_limit(original_text, rewritten_text, tolerance=WORD_TOLERANCE
 
 
 def build_length_reprompt_prompt(
+    previous_prompt,
     original_text,
     candidate_text,
-    target_label_str,
-    attempts_used,
-    max_attempts,
     tolerance=WORD_TOLERANCE,
 ):
     original_count = count_words(original_text)
@@ -82,15 +80,12 @@ def build_length_reprompt_prompt(
     max_words = original_count + tolerance
 
     return (
-        "Your previous rewrite violated the word-length constraint. Rewrite again.\n"
-        f"Original statement ({original_count} words): {original_text}\n"
+        f"{previous_prompt}\n\n"
+        "Reprompt: your previous modification violated the word-length constraint. Rewrite again.\n"
         f"Your previous rewrite ({candidate_count} words): {candidate_text}\n"
         f"Required word range: {min_words} to {max_words} words (inclusive).\n"
-        f"Modify the statement so that it appears {target_label_str.upper()} to the AI "
-        "while preserving meaning, grammar, and naturalness.\n\n"
-        f"Your modification must stay within {original_count} +/- {tolerance} words. "
-        f"You have used {attempts_used} of {max_attempts} attempts.\n"
-        "Write your modification below"
+        f"The original statement has {original_count} words.\n"
+        "Your modification:"
     )
 
 
@@ -102,7 +97,7 @@ _LABEL_MAP = {0: "deceptive", 1: "truthful"}
 
 
 def generate_attack_prompt(sequence):
-    """Build the attack prompt mirroring the human study instructions, including full history of previous attempts."""
+    """Building the attack prompt mirroring the human study instructions, including full history of previous attempts."""
     original_label_str = _LABEL_MAP[sequence.original_label]
     target_label_str   = _LABEL_MAP[1 - sequence.original_label]
     original_length    = len(sequence.original_text.split())
