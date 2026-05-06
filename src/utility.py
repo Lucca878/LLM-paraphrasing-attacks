@@ -74,6 +74,10 @@ def build_length_reprompt_prompt(
     candidate_text,
     tolerance=WORD_TOLERANCE,
 ):
+    previous_prompt = previous_prompt.rstrip()
+    if previous_prompt.endswith("Your modification:"):
+        previous_prompt = previous_prompt[: -len("Your modification:")].rstrip()
+
     original_count = count_words(original_text)
     candidate_count = count_words(candidate_text)
     min_words = max(1, original_count - tolerance)
@@ -135,8 +139,9 @@ def generate_attack_prompt(sequence):
         "Keep the same core meaning: Key facts and events must remain recognizable in your modification.\n"
         "Write naturally: Your modified statement should be grammatically correct and sound natural.\n\n"
         "What Not To Do\n"
-        "Do not make the statement obviously unrealistic or absurd just to change the AI prediction. "
-        "For example: changing numerical values to unrealistic figures, or adding unrealistic details.\n\n"
+        "Do not make the statement obviously unrealistic or absurd just to change the AI prediction. For example:\n"
+        "Changing 'my grandmother died at age 76' to 'my grandmother died at age 765'\n"
+        "Adding unrealistic details such as 'aliens abducted me on the way home'\n\n"
         "---\n\n"
         "Main Task\n\n"
         f"Original statement\n\n{sequence.original_text}\n\n"
