@@ -193,8 +193,7 @@ def generate_strategy_prompt(sequence):
         f"Original statement: {sequence.original_text}\n"
         f"Most successful modification: {best.text if best else ''}\n\n"
         "What strategy did you use so the AI would change its initial prediction?\n\n"
-        f"{recap}\n"
-        "Describe your approach in 2-3 sentences."
+        "Describe your approach in 2-3 sentences:"
     )
 
 
