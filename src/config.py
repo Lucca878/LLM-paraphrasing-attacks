@@ -41,8 +41,8 @@ WORD_TOLERANCE     = 20    # rewritten text must stay within +/- this many token
 MAX_LENGTH_REPROMPTS = 3   # retry count within the same attempt for length violations
 
 # Token-cap tuning per architecture
-QWEN_MAXTOK_MULTIPLIER = 1.10
-QWEN_MAXTOK_ADDON      = 8
+QWEN_MAXTOK_MULTIPLIER = 1.0
+QWEN_MAXTOK_ADDON      = 0
 
 # ---------------------------------------------------------------------------
 # Paths
