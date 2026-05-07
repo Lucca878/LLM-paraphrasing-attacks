@@ -1,6 +1,7 @@
 import os
 import re
 
+import tiktoken
 from openrouter import OpenRouter
 from dotenv import load_dotenv
 
@@ -10,6 +11,14 @@ from config import LLM_ARCHITECTURES
 # Resolve .env relative to project root (one level above src/)
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(_ROOT, ".env"))
+
+# OpenRouter uses cl100k_base for token counting (OpenAI-compatible API layer)
+_enc = tiktoken.get_encoding("cl100k_base")
+
+
+def count_tokens_exact(text: str) -> int:
+    """Count tokens the way OpenRouter does (cl100k_base / tiktoken)."""
+    return len(_enc.encode(text))
 
 
 def _build_client() -> OpenRouter:
@@ -22,20 +31,35 @@ def _get_model_id(architecture: str) -> str:
 
 
 def _clean_response(text: str) -> str:
-    """Strip thinking blocks (e.g. Qwen3 <think>…</think>) and trim whitespace."""
+    """Strip model meta-output and return only the paraphrase text."""
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+
+    # # Some models append markdown reporting blocks (word counts, key adjustments).
+    # lines = text.splitlines()
+    # cutoff = None
+    # marker = re.compile(
+    #     r"^(---+|\*\*\s*word\s*count\s*\*\*|word\s*count\s*:|\*\*\s*key\s*adjustments\s*\*\*|key\s*adjustments\s*:)",
+    #     flags=re.IGNORECASE,
+    # )
+    # for i, line in enumerate(lines):
+    #     if marker.match(line.strip()):
+    #         cutoff = i
+    #         break
+
+    # if cutoff is not None:
+    #     lines = lines[:cutoff]
+
+    # cleaned = "\n".join(lines).strip()
+    # cleaned = re.sub(r"\n?\(\d+\s+words?\)\s*$", "", cleaned, flags=re.IGNORECASE).strip()
+    # return cleaned
+
     return text.strip()
 
 
-# Approximate token count from word count (English prose: ~1.3 tokens/word)
-_TOKENS_PER_WORD = 1.3
-
-
-def words_to_token_range(word_count: int, tolerance: int) -> tuple[int, int]:
-    """Convert a word-count ± tolerance into a (min_tokens, max_tokens) pair."""
-    lo = max(1, word_count - tolerance)
-    hi = word_count + tolerance
-    return int(lo * _TOKENS_PER_WORD), int(hi * _TOKENS_PER_WORD)
+def words_to_token_range(text: str, tolerance: int) -> tuple[int, int]:
+    """Return (min_tokens, max_tokens) based on exact tiktoken count ± tolerance."""
+    orig = count_tokens_exact(text)
+    return max(1, orig - tolerance), orig + tolerance
 
 
 def call_llm(
@@ -51,10 +75,9 @@ def call_llm(
     model_id = _get_model_id(architecture)
 
     messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    if developer_prompt:
-        messages.append({"role": "developer", "content": developer_prompt})
+    combined_system = "\n\n".join(filter(None, [system_prompt, developer_prompt]))
+    if combined_system:
+        messages.append({"role": "system", "content": combined_system})
     messages.append({"role": "user", "content": prompt})
 
     kwargs = {"model": model_id, "messages": messages, "temperature": temperature}

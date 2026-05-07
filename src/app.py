@@ -15,7 +15,6 @@ from config import (
     N_ATTACK_SEQUENCES,
     RANDOM_SEED,
     DATASET_PATH,
-    MAX_LENGTH_REPROMPTS,
     WORD_TOLERANCE,
 )
 from dao import AttackSequence, AttemptResult
@@ -26,9 +25,6 @@ from utility import (
     sample_statements,
     generate_attack_prompt,
     generate_strategy_prompt,
-    build_length_reprompt_prompt,
-    count_words,
-    is_within_word_limit,
     label_flipped,
     init_results_csv,
     append_sequence_to_csv,
@@ -46,17 +42,13 @@ def _attack_system_prompt() -> str:
 
 
 def _attack_developer_prompt(original_text: str, min_tok: int, max_tok: int) -> str:
-    """Developer prompt that enforces output format and word-length constraints."""
-    n = count_words(original_text)
-    lo = max(1, n - WORD_TOLERANCE)
-    hi = n + WORD_TOLERANCE
+    """Developer prompt that enforces output format and token-length constraints."""
     return (
-        "Only give me the requested paraphrase and nothing else. "
-        "Do not add any explanation, preamble, or commentary. "
-        f"Write between {lo} and {hi} words (the original has {n} words). "
-        f"Target generated-token range is approximately {min_tok} to {max_tok} tokens. "
-        "Strictly respect this word count. "
-        "Before you answer, count your words and revise internally until you are within range."
+        f"Write between {min_tok} and {max_tok} tokens in your modification. "
+        "Strictly respect this token range. "
+        "Before you answer, estimate your output length and revise internally until you are within range. "
+        "Output only the requested modification and nothing else. "
+        "Do not add any explanation, preamble, word count or commentary in your response. "
     )
 
 
@@ -69,7 +61,7 @@ SYSTEM_PROMPT_STRATEGY = (
 DEVELOPER_PROMPT_STRATEGY = (
     "Describe only the strategy used. "
     "Output exactly 2 to 3 complete sentences. "
-    "Do not add any explanation, preamble, or commentary. "
+    "Do not add any explanation, preamble, or commentary in your response. "
 )
 
 
@@ -89,55 +81,23 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
     )
     sequence.session_start = start_iso
 
-    # Token range derived from original statement length — passed to every attack call
-    orig_word_count = count_words(sequence.original_text)
-    min_tok, max_tok = words_to_token_range(orig_word_count, WORD_TOLERANCE)
-    initial_max_tok = max_tok
+    # Token range derived from exact tiktoken count of original statement
+    min_tok, max_tok = words_to_token_range(sequence.original_text, WORD_TOLERANCE)
 
     for _ in range(max_attempts):
         prompt = generate_attack_prompt(sequence)
-        effective_prompt = prompt
         attack_sys = _attack_system_prompt()
         attack_dev = _attack_developer_prompt(sequence.original_text, min_tok, max_tok)
         attempt_start = time.time()
         rewrite_text = call_llm(
             architecture,
-            effective_prompt,
+            prompt,
             temperature,
             attack_sys,
             developer_prompt=attack_dev,
-            max_tokens=initial_max_tok,
+            max_tokens=max_tok,
         )
-
-        # Enforce length constraint by reprompting within the same attempt.
-        length_reprompt_used = ""
-        for _ in range(MAX_LENGTH_REPROMPTS):
-            if is_within_word_limit(sequence.original_text, rewrite_text, tolerance=WORD_TOLERANCE):
-                break
-            effective_prompt = build_length_reprompt_prompt(
-                effective_prompt,
-                sequence.original_text,
-                rewrite_text,
-                tolerance=WORD_TOLERANCE,
-            )
-            length_reprompt_used = effective_prompt
-            rewrite_text = call_llm(
-                architecture,
-                effective_prompt,
-                temperature,
-                attack_sys,
-                developer_prompt=attack_dev,
-                max_tokens=max_tok,
-            )
-
         duration_ms = int((time.time() - attempt_start) * 1000)
-
-        if not is_within_word_limit(sequence.original_text, rewrite_text, tolerance=WORD_TOLERANCE):
-            print(
-                "    warning=length_constraint_not_met "
-                f"orig_words={count_words(sequence.original_text)} "
-                f"rewrite_words={count_words(rewrite_text)}"
-            )
 
         label, confidence = classify(rewrite_text)
         attempt = AttemptResult(
@@ -145,8 +105,7 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
             label=label,
             confidence=confidence,
             duration_ms=duration_ms,
-            prompt=prompt,  # always store the original attack prompt, not a reprompt
-            length_reprompt=length_reprompt_used,
+            prompt=prompt,
         )
         sequence.attempts.append(attempt)
 

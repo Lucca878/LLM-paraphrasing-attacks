@@ -18,7 +18,7 @@ LLM_ARCHITECTURES = {
         "model": "meta-llama/llama-3.3-70b-instruct",
     },
     "qwen3": {
-        "model": "qwen/qwen3-235b-a22b",
+        "model": "qwen/qwen3-next-80b-a3b-instruct",
     },
 }
 
@@ -37,7 +37,7 @@ TEMPERATURE_MIN    = 0.1
 TEMPERATURE_MAX    = 1.0
 N_ATTACK_SEQUENCES = 325   # total sequences per architecture, to match human n
 RANDOM_SEED        = 42    # for statement sampling (same statements across archs)
-WORD_TOLERANCE     = 20    # rewritten text must stay within +/- this many words
+WORD_TOLERANCE     = 20    # rewritten text must stay within +/- this many tokens
 MAX_LENGTH_REPROMPTS = 3   # retry count within the same attempt for length violations
 
 # ---------------------------------------------------------------------------

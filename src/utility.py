@@ -1,5 +1,6 @@
 import os
 
+import tiktoken
 import pandas as pd
 import numpy as np
 import torch
@@ -12,6 +13,12 @@ from dao import AttackSequence, AttemptResult
 # Resolve .env relative to project root (one level above src/)
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(_ROOT, ".env"))
+
+_enc = tiktoken.get_encoding("cl100k_base")
+
+
+def _count_tokens(text: str) -> int:
+    return len(_enc.encode(text))
 
 # ---------------------------------------------------------------------------
 # Classifier (loaded once at import time)
@@ -60,39 +67,6 @@ def count_words(text):
     return len(text.split())
 
 
-def is_within_word_limit(original_text, rewritten_text, tolerance=WORD_TOLERANCE):
-    original_count = count_words(original_text)
-    rewritten_count = count_words(rewritten_text)
-    min_words = max(1, original_count - tolerance)
-    max_words = original_count + tolerance
-    return min_words <= rewritten_count <= max_words
-
-
-def build_length_reprompt_prompt(
-    previous_prompt,
-    original_text,
-    candidate_text,
-    tolerance=WORD_TOLERANCE,
-):
-    previous_prompt = previous_prompt.rstrip()
-    if previous_prompt.endswith("Your modification:"):
-        previous_prompt = previous_prompt[: -len("Your modification:")].rstrip()
-
-    original_count = count_words(original_text)
-    candidate_count = count_words(candidate_text)
-    min_words = max(1, original_count - tolerance)
-    max_words = original_count + tolerance
-
-    return (
-        f"{previous_prompt}\n\n"
-        "Reprompt: your previous modification violated the word-length constraint. Rewrite again.\n"
-        f"Your previous rewrite ({candidate_count} words): {candidate_text}\n"
-        f"Required word range: {min_words} to {max_words} words (inclusive).\n"
-        f"The original statement has {original_count} words.\n"
-        "Your modification:"
-    )
-
-
 # ---------------------------------------------------------------------------
 # Prompt generation
 # ---------------------------------------------------------------------------
@@ -104,9 +78,9 @@ def generate_attack_prompt(sequence):
     """Building the attack prompt mirroring the human study instructions, including full history of previous attempts."""
     original_label_str = _LABEL_MAP[sequence.original_label]
     target_label_str   = _LABEL_MAP[1 - sequence.original_label]
-    original_length    = len(sequence.original_text.split())
-    min_words          = max(1, original_length - WORD_TOLERANCE)
-    max_words          = original_length + WORD_TOLERANCE
+    orig_tok  = _count_tokens(sequence.original_text)
+    min_tok   = max(1, orig_tok - WORD_TOLERANCE)
+    max_tok   = orig_tok + WORD_TOLERANCE
 
     prompt = (
         "In this study, you will read 1 short statement written by participants in another study. "
@@ -150,8 +124,7 @@ def generate_attack_prompt(sequence):
         f"Confidence score: {sequence.original_confidence:.2f}%\n\n"
         f"Task goal\n\nModify the statement so that it appears {target_label_str.upper()} to the AI "
         "while preserving meaning, grammar, and naturalness.\n\n"
-        f"Your modification must stay within {original_length} +/- {WORD_TOLERANCE} words "
-        f"({min_words} to {max_words} words).\n"
+        f"Your modification must stay within {min_tok} to {max_tok} tokens.\n"
         f"You have used {len(sequence.attempts)} of {MAX_ATTEMPTS} attempts.\n"
     )
 
@@ -178,7 +151,7 @@ def generate_strategy_prompt(sequence):
     return (
         "You have completed the main task of the study. "
         "Your task was to paraphrase an original truthful or deceptive autobiographical statement so the AI would change its initial prediction. "
-        "In your modification, you had to preserve the original meaning, grammar, and naturalness, and stay within 20 words of the original word length.\n\n"
+        "In your modification, you had to preserve the original meaning, grammar, and naturalness, and stay within a similar token length to the original.\n\n"
         f"In this sequence, the original statement was classified as {original_label_str}, and your goal was to make it appear {target_label_str} to the AI.\n\n"
         f"Original statement: {sequence.original_text}\n"
         f"Most successful modification: {best.text if best else ''}\n\n"
@@ -220,7 +193,6 @@ def _build_columns():
             f"rewrite{i}_confidence",
             f"rewrite{i}_duration_ms",
             f"rewrite{i}_prompt",
-            f"rewrite{i}_reprompt",
         ]
     cols += ["strategies", "strategy_prompt", "received_at", "attack_modality", "llm_architecture", "temperature"]
     return cols
@@ -258,7 +230,6 @@ def append_sequence_to_csv(path, sequence):
         row[f"rewrite{i}_confidence"]  = round(attempt.confidence, 2)
         row[f"rewrite{i}_duration_ms"] = attempt.duration_ms
         row[f"rewrite{i}_prompt"]      = attempt.prompt
-        row[f"rewrite{i}_reprompt"]    = attempt.length_reprompt
 
     for i in range(len(sequence.attempts) + 1, MAX_ATTEMPTS + 1):
         row[f"rewrite{i}_text"]        = ""
@@ -266,7 +237,6 @@ def append_sequence_to_csv(path, sequence):
         row[f"rewrite{i}_confidence"]  = ""
         row[f"rewrite{i}_duration_ms"] = ""
         row[f"rewrite{i}_prompt"]      = ""
-        row[f"rewrite{i}_reprompt"]    = ""
 
     # Trailing columns — must come after the rewrite columns (matches _build_columns order)
     row["strategies"]       = sequence.strategies
