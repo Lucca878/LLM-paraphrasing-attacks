@@ -1,8 +1,10 @@
 import os
 import re
+import time
 
 import tiktoken
 from openrouter import OpenRouter
+from openrouter import errors as openrouter_errors
 from dotenv import load_dotenv
 
 from config import LLM_ARCHITECTURES
@@ -89,5 +91,14 @@ def call_llm(
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
 
-    response = client.chat.send(**kwargs)
-    return _clean_response(response.choices[0].message.content)
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.send(**kwargs)
+            return _clean_response(response.choices[0].message.content)
+        except openrouter_errors.TooManyRequestsResponseError:
+            if attempt == max_retries - 1:
+                raise
+            wait_seconds = 2 ** attempt
+            print(f"    [rate-limit] provider throttled request; retrying in {wait_seconds}s...")
+            time.sleep(wait_seconds)

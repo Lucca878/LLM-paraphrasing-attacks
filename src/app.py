@@ -68,7 +68,13 @@ DEVELOPER_PROMPT_STRATEGY = (
 )
 
 
-def run_attack_sequence(architecture, statement_row, temperature, max_attempts=MAX_ATTEMPTS):
+def run_attack_sequence(
+    architecture,
+    statement_row,
+    temperature,
+    max_attempts=MAX_ATTEMPTS,
+    use_max_tokens=True,
+):
     session_id  = str(uuid.uuid4())
     start_time  = time.time()
     start_iso   = datetime.datetime.utcnow().isoformat() + "Z"
@@ -98,7 +104,7 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
             temperature,
             attack_sys,
             developer_prompt=attack_dev,
-            max_tokens=max_tok,
+            max_tokens=max_tok if use_max_tokens else None,
         )
         duration_ms = int((time.time() - attempt_start) * 1000)
 
@@ -158,6 +164,11 @@ def main():
         action="store_true",
         help="Run a quick smoke-test: 10 sequences, max 3 attempts each, results in results/test/",
     )
+    parser.add_argument(
+        "--no-max-tokens",
+        action="store_true",
+        help="Disable max_tokens cap for attack generations (useful for tokenizer mismatch tests).",
+    )
     args = parser.parse_args()
 
     if args.test:
@@ -168,6 +179,8 @@ def main():
 
     if args.test:
         print("[TEST MODE] 10 sequences, max 3 attempts each, output -> results/test/")
+    if args.no_max_tokens:
+        print("[TOKEN CAP OFF] max_tokens is disabled for attack generations")
 
     timestamp  = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
     df         = load_dataset(DATASET_PATH)
@@ -199,7 +212,13 @@ def main():
                 f"temp={temperature:.3f}"
             )
 
-            sequence = run_attack_sequence(architecture, row, temperature, max_attempts=test_max_attempts)
+            sequence = run_attack_sequence(
+                architecture,
+                row,
+                temperature,
+                max_attempts=test_max_attempts,
+                use_max_tokens=not args.no_max_tokens,
+            )
             append_sequence_to_csv(csv_path, sequence)
 
             flipped = (
