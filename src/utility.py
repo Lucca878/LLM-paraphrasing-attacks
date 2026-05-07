@@ -78,9 +78,9 @@ def generate_attack_prompt(sequence):
     """Building the attack prompt mirroring the human study instructions, including full history of previous attempts."""
     original_label_str = _LABEL_MAP[sequence.original_label]
     target_label_str   = _LABEL_MAP[1 - sequence.original_label]
-    orig_tok  = _count_tokens(sequence.original_text)
-    min_tok   = max(1, orig_tok - WORD_TOLERANCE)
-    max_tok   = orig_tok + WORD_TOLERANCE
+    orig_words = len(sequence.original_text.split())
+    min_words  = max(1, orig_words - WORD_TOLERANCE)
+    max_words  = orig_words + WORD_TOLERANCE
 
     prompt = (
         "In this study, you will read 1 short statement written by participants in another study. "
@@ -124,7 +124,7 @@ def generate_attack_prompt(sequence):
         f"Confidence score: {sequence.original_confidence:.2f}%\n\n"
         f"Task goal\n\nModify the statement so that it appears {target_label_str.upper()} to the AI "
         "while preserving meaning, grammar, and naturalness.\n\n"
-        f"Your modification must stay within {min_tok} to {max_tok} tokens.\n"
+        f"Your modification must stay within {min_words} to {max_words} words (the original has {orig_words} words).\n"
         f"You have used {len(sequence.attempts)} of {MAX_ATTEMPTS} attempts.\n"
     )
 

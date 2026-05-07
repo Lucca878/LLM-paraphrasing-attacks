@@ -42,11 +42,14 @@ def _attack_system_prompt() -> str:
 
 
 def _attack_developer_prompt(original_text: str, min_tok: int, max_tok: int) -> str:
-    """Developer prompt that enforces output format and token-length constraints."""
+    """Developer prompt that enforces output format and word-length constraints."""
+    n = len(original_text.split())
+    lo = max(1, n - WORD_TOLERANCE)
+    hi = n + WORD_TOLERANCE
     return (
-        f"Write between {min_tok} and {max_tok} tokens in your modification. "
-        "Strictly respect this token range. "
-        "Before you answer, estimate your output length and revise internally until you are within range. "
+        f"Write between {lo} and {hi} words in your modification (the original has {n} words). "
+        "Strictly respect this word count. "
+        "Before you answer, count your words and revise internally until you are within range. "
         "Output only the requested modification and nothing else. "
         "Do not add any explanation, preamble, word count or commentary in your response. "
     )
