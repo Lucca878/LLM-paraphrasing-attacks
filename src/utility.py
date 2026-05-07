@@ -150,8 +150,8 @@ def generate_strategy_prompt(sequence):
 
     return (
         "You have completed the main task of the study. "
-        "Your task was to paraphrase an original truthful or deceptive autobiographical statement so the AI would change its initial prediction. "
-        "In your modification, you had to preserve the original meaning, grammar, and naturalness, and stay within a similar token length to the original.\n\n"
+        "Your task was to paraphrase an original truthful or deceptive autobiographical statement so an AI would change its initial prediction. "
+        "In your modification, you had to preserve the original meaning, grammar, and naturalness, and stay within 20 words of the original statement.\n\n"
         f"In this sequence, the original statement was classified as {original_label_str}, and your goal was to make it appear {target_label_str} to the AI.\n\n"
         f"Original statement: {sequence.original_text}\n"
         f"Most successful modification: {best.text if best else ''}\n\n"

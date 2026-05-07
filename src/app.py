@@ -48,8 +48,7 @@ def _attack_developer_prompt(original_text: str, min_tok: int, max_tok: int) -> 
     hi = n + WORD_TOLERANCE
     return (
         f"Write between {lo} and {hi} words in your modification (the original has {n} words). "
-        "Strictly respect this word count. "
-        "Before you answer, count your words and revise internally until you are within range. "
+        "Strictly respect this word range. "
         "Output only the requested modification and nothing else. "
         "Do not add any explanation, preamble, word count or commentary in your response. "
     )
