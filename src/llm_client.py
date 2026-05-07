@@ -7,7 +7,11 @@ from openrouter import OpenRouter
 from openrouter import errors as openrouter_errors
 from dotenv import load_dotenv
 
-from config import LLM_ARCHITECTURES
+from config import (
+    LLM_ARCHITECTURES,
+    QWEN_MAXTOK_MULTIPLIER,
+    QWEN_MAXTOK_ADDON,
+)
 
 
 # Resolve .env relative to project root (one level above src/)
@@ -16,10 +20,8 @@ load_dotenv(os.path.join(_ROOT, ".env"))
 
 # OpenRouter uses cl100k_base for token counting (OpenAI-compatible API layer)
 _enc = tiktoken.get_encoding("cl100k_base")
-
-
 def count_tokens_exact(text: str) -> int:
-    """Count tokens the way OpenRouter does (cl100k_base / tiktoken)."""
+    """Count tokens with cl100k_base tokenizer."""
     return len(_enc.encode(text))
 
 
@@ -58,15 +60,21 @@ def _clean_response(text: str) -> str:
     return text.strip()
 
 
-def words_to_token_range(text: str, tolerance: int) -> tuple[int, int]:
-    """Return (min_tokens, max_tokens) based on exact tiktoken count ± tolerance.
+def words_to_token_range(text: str, tolerance: int, architecture: str) -> tuple[int, int]:
+    """Return (min_tokens, max_tokens) based on cl100k token count ± tolerance.
 
     The token tolerance is scaled by 1.3 to match the word tolerance in the
     developer prompt (English prose averages ~1.3 tokens/word).
     """
     orig = count_tokens_exact(text)
     tok_tolerance = round(tolerance * 1.3)
-    return max(1, orig - tok_tolerance), orig + tok_tolerance
+    min_tok = max(1, orig - tok_tolerance)
+    max_tok = orig + tok_tolerance
+
+    if architecture == "qwen3":
+        max_tok = int(max_tok * QWEN_MAXTOK_MULTIPLIER) + QWEN_MAXTOK_ADDON
+
+    return min_tok, max_tok
 
 
 def call_llm(

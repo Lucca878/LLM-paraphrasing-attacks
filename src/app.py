@@ -49,7 +49,7 @@ def _attack_developer_prompt(original_text: str, min_tok: int, max_tok: int) -> 
     return (
         f"Your modification must be at least {lo} words. "
         f"Your modification must be at most {hi} words. "
-        "Your modification must end with a finished sentence. "
+        "Your modification must end with a finished sentence and punctuation. "
         "Output only the requested modification and nothing else. "
         "Do not add any explanation, preamble, word count or commentary in your response. "
     )
@@ -90,8 +90,12 @@ def run_attack_sequence(
     )
     sequence.session_start = start_iso
 
-    # Token range derived from exact tiktoken count of original statement
-    min_tok, max_tok = words_to_token_range(sequence.original_text, WORD_TOLERANCE)
+    # Token range derived from architecture-aware token counting
+    min_tok, max_tok = words_to_token_range(
+        sequence.original_text,
+        WORD_TOLERANCE,
+        architecture,
+    )
 
     for _ in range(max_attempts):
         prompt = generate_attack_prompt(sequence)
