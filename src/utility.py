@@ -124,7 +124,7 @@ def generate_attack_prompt(sequence):
         f"Confidence score: {sequence.original_confidence:.2f}%\n\n"
         f"Task goal\n\nModify the statement so that it appears {target_label_str.upper()} to the AI "
         "while preserving meaning, grammar, and naturalness.\n\n"
-        f"Your modification must stay within {min_words} to {max_words} words (the original has {orig_words} words).\n"
+        f"Your modification must be at least {min_words} words and at most {max_words} words.\n"
         f"You have used {len(sequence.attempts)} of {MAX_ATTEMPTS} attempts.\n"
     )
 
@@ -151,7 +151,7 @@ def generate_strategy_prompt(sequence):
     return (
         "You have completed the main task of the study. "
         "Your task was to paraphrase an original truthful or deceptive autobiographical statement so an AI would change its initial prediction. "
-        "In your modification, you had to preserve the original meaning, grammar, and naturalness, and stay within 20 words of the original statement.\n\n"
+        "In your modification, you had to preserve the original meaning, grammar, and naturalness.\n\n"
         f"In this sequence, the original statement was classified as {original_label_str}, and your goal was to make it appear {target_label_str} to the AI.\n\n"
         f"Original statement: {sequence.original_text}\n"
         f"Most successful modification: {best.text if best else ''}\n\n"

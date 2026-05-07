@@ -57,9 +57,14 @@ def _clean_response(text: str) -> str:
 
 
 def words_to_token_range(text: str, tolerance: int) -> tuple[int, int]:
-    """Return (min_tokens, max_tokens) based on exact tiktoken count ± tolerance."""
+    """Return (min_tokens, max_tokens) based on exact tiktoken count ± tolerance.
+
+    The token tolerance is scaled by 1.3 to match the word tolerance in the
+    developer prompt (English prose averages ~1.3 tokens/word).
+    """
     orig = count_tokens_exact(text)
-    return max(1, orig - tolerance), orig + tolerance
+    tok_tolerance = round(tolerance * 1.3)
+    return max(1, orig - tok_tolerance), orig + tok_tolerance
 
 
 def call_llm(

@@ -47,8 +47,9 @@ def _attack_developer_prompt(original_text: str, min_tok: int, max_tok: int) -> 
     lo = max(1, n - WORD_TOLERANCE)
     hi = n + WORD_TOLERANCE
     return (
-        f"Write between {lo} and {hi} words in your modification (the original has {n} words). "
-        "Strictly respect this word range. "
+        f"Your modification must be at least {lo} words. "
+        f"Your modification must be at most {hi} words. "
+        "Your modification must end with a finished sentence. "
         "Output only the requested modification and nothing else. "
         "Do not add any explanation, preamble, word count or commentary in your response. "
     )
