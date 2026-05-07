@@ -6,30 +6,19 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(_ROOT, ".env"))
 
 # ---------------------------------------------------------------------------
-# LLM provider
-# Set LLM_PROVIDER="together" in .env to use Together AI cloud (recommended
-# for the largest model variants). Default is "ollama" for local inference.
-# ---------------------------------------------------------------------------
-LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama")
-
-# ---------------------------------------------------------------------------
-# Model IDs per provider
-# Ollama: https://ollama.com/library
-# Together AI: https://api.together.ai/models
+# Model IDs (OpenRouter only)
+# OpenRouter: https://openrouter.ai/models
 # Verify / update these IDs as new model versions are released.
 # ---------------------------------------------------------------------------
 LLM_ARCHITECTURES = {
     "gemma4": {
-        "ollama_model":   "gemma4:31b-cloud",
-        "together_model": "google/gemma-4-31B-it",                          # serverless
+        "model": "google/gemma-4-31b-it",
     },
     "llama3.3": {
-        "ollama_model":   "llama3.3:8b",
-        "together_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",        # serverless (Llama 3.3 70B, closest available)
+        "model": "meta-llama/llama-3.3-70b-instruct",
     },
     "qwen3": {
-        "ollama_model":   "qwen3:8b",
-        "together_model": "Qwen/Qwen3-235B-A22B-Instruct-2507-tput",        # serverless
+        "model": "qwen/qwen3-235b-a22b",
     },
 }
 

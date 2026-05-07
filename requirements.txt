@@ -1,4 +1,4 @@
-openai
+openrouter
 python-dotenv
 transformers
 torch

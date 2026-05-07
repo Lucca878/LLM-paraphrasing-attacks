@@ -1,6 +1,6 @@
 # LLM Paraphrasing Attacks
 
-Fully reproducible pipeline for adversarial paraphrasing attacks on a deception classifier using open-source LLMs.
+Fully reproducible pipeline for adversarial paraphrasing attacks on a deception classifier using OpenRouter-hosted LLMs.
 
 ## Overview
 
@@ -8,11 +8,11 @@ A ModernBERT classifier trained on the Hippocorpus dataset (accuracy/F1 = 0.78) 
 
 Three architectures are compared:
 
-| Architecture | Provider | Largest variant |
-|---|---|---|
-| `gemma4` | Google DeepMind | gemma4:31b-cloud (Ollama) / google/gemma-4-31B-it (Together AI) |
-| `llama3.3` | Meta | llama3.3:8b (Ollama) / meta-llama/Llama-3.3-70B-Instruct-Turbo (Together AI) |
-| `qwen3` | Alibaba Cloud | qwen3:8b (Ollama) / Qwen3-235B-A22B (Together AI) |
+| Architecture | OpenRouter model |
+|---|---|
+| `gemma4` | `google/gemma-4-31b-it` |
+| `llama3.3` | `meta-llama/llama-3.3-70b-instruct` |
+| `qwen3` | `qwen/qwen3-235b-a22b` |
 
 Each architecture runs **n = 325** paraphrasing sequences using the same statement sample (for comparability with human participants) and independently sampled temperatures drawn uniformly from [0.1, 1.0]. The most effective and efficient architecture will be selected for the human vs. LLM comparison.
 
@@ -30,7 +30,7 @@ llmAttacks/
 ├── src/
 │   ├── config.py        # all tuneable constants (n, temperature range, model IDs, paths)
 │   ├── dao.py           # AttackSequence / AttemptResult data classes
-│   ├── llm_client.py    # OpenAI-compatible client for Ollama or Together AI
+│   ├── llm_client.py    # OpenRouter SDK client
 │   ├── utility.py       # classifier, prompt builder, CSV writer
 │   └── app.py           # entry point
 ├── .env.example         # copy to .env and fill in your key
@@ -63,7 +63,7 @@ model/modernbert_trained/
   tokenizer_config.json
 ```
 
-### 3 — Configure your LLM provider
+### 3 — Configure OpenRouter
 
 ```bash
 cp .env.example .env
@@ -72,60 +72,25 @@ cp .env.example .env
 Edit `.env`:
 
 ```dotenv
-# "ollama" for local inference, "together" for Together AI cloud
-LLM_PROVIDER=ollama
+OPENROUTER_API_KEY=your_key_here
 ```
 
-**Together AI** is recommended for the larger hosted variants (31B, 70B, 235B). Sign up at <https://api.together.ai>.
+Sign up at <https://openrouter.ai>.
 
-For **Together AI** instead of local Ollama, set:
+This project uses OpenRouter's official Python SDK (`openrouter`).
+
+Optional API controls:
 
 ```dotenv
-LLM_PROVIDER=together
-TOGETHER_API_KEY=your_key_here
+LLM_API_TIMEOUT_SECONDS=120
+LLM_API_MAX_RETRIES=1
 ```
 
-### 4 - Local Ollama setup and model management
+Optional API controls:
 
-Install and start Ollama:
-
-```bash
-brew install --cask ollama
-open -a Ollama
-which ollama
-ollama --version
-```
-
-Pull only the local models you need for testing:
-
-```bash
-ollama pull llama3.3:8b
-ollama pull qwen3:8b
-ollama pull gemma4:31b-cloud
-```
-
-List local models:
-
-```bash
-ollama list
-```
-
-Where models are stored on macOS:
-
-```text
-~/.ollama/models
-```
-
-Remove one model when no longer needed:
-
-```bash
-ollama rm llama3.3:8b
-```
-
-Remove all local Ollama model data (careful):
-
-```bash
-rm -rf ~/.ollama/models
+```dotenv
+LLM_API_TIMEOUT_SECONDS=120
+LLM_API_MAX_RETRIES=1
 ```
 
 ---

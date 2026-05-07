@@ -33,11 +33,10 @@ from utility import (
     init_results_csv,
     append_sequence_to_csv,
 )
-from config import WORD_TOLERANCE
 
 load_dotenv()
 
-def _attack_system_prompt(original_text: str) -> str:
+def _attack_system_prompt() -> str:
     """System prompt for attack role/context."""
     return (
         "You are a participant in a study called 'Rewriting truths and lies'. "
@@ -61,18 +60,6 @@ def _attack_developer_prompt(original_text: str, min_tok: int, max_tok: int) -> 
     )
 
 
-def _token_cap_for_initial_pass(max_words: int) -> int:
-    """Conservative cap to reduce overlong generations while keeping room for natural phrasing."""
-    return max(24, int(max_words * 1.15) + 8)
-
-
-def _token_cap_for_reprompt(candidate_words: int, min_words: int, max_words: int) -> int:
-    """Adapt cap based on previous output length: stricter for long outputs, looser for short ones."""
-    if candidate_words > max_words:
-        return max(16, int(max_words * 1.02) + 2)
-    if candidate_words < min_words:
-        return max(24, int(max_words * 1.20) + 12)
-    return max(24, int(max_words * 1.10) + 8)
 SYSTEM_PROMPT_STRATEGY = (
     "You are a participant in a study called 'Rewriting truths and lies'. "
     "Your task was to interact with an AI model that has been trained to identify statements "
@@ -104,28 +91,29 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
 
     # Token range derived from original statement length — passed to every attack call
     orig_word_count = count_words(sequence.original_text)
-    min_words = max(1, orig_word_count - WORD_TOLERANCE)
-    max_words = orig_word_count + WORD_TOLERANCE
     min_tok, max_tok = words_to_token_range(orig_word_count, WORD_TOLERANCE)
-    initial_max_tok = min(max_tok, _token_cap_for_initial_pass(max_words))
+    initial_max_tok = max_tok
 
     for _ in range(max_attempts):
         prompt = generate_attack_prompt(sequence)
         effective_prompt = prompt
-        attack_sys = _attack_system_prompt(sequence.original_text)
+        attack_sys = _attack_system_prompt()
         attack_dev = _attack_developer_prompt(sequence.original_text, min_tok, max_tok)
         attempt_start = time.time()
-        rewrite_text = call_llm(architecture, effective_prompt, temperature, attack_sys,
-                    developer_prompt=attack_dev,
-                                min_tokens=min_tok, max_tokens=initial_max_tok)
+        rewrite_text = call_llm(
+            architecture,
+            effective_prompt,
+            temperature,
+            attack_sys,
+            developer_prompt=attack_dev,
+            max_tokens=initial_max_tok,
+        )
 
         # Enforce length constraint by reprompting within the same attempt.
         length_reprompt_used = ""
         for _ in range(MAX_LENGTH_REPROMPTS):
             if is_within_word_limit(sequence.original_text, rewrite_text, tolerance=WORD_TOLERANCE):
                 break
-            candidate_words = count_words(rewrite_text)
-            reprompt_max_tok = min(max_tok, _token_cap_for_reprompt(candidate_words, min_words, max_words))
             effective_prompt = build_length_reprompt_prompt(
                 effective_prompt,
                 sequence.original_text,
@@ -133,9 +121,14 @@ def run_attack_sequence(architecture, statement_row, temperature, max_attempts=M
                 tolerance=WORD_TOLERANCE,
             )
             length_reprompt_used = effective_prompt
-            rewrite_text = call_llm(architecture, effective_prompt, temperature, attack_sys,
-                                    developer_prompt=attack_dev,
-                                    min_tokens=min_tok, max_tokens=reprompt_max_tok)
+            rewrite_text = call_llm(
+                architecture,
+                effective_prompt,
+                temperature,
+                attack_sys,
+                developer_prompt=attack_dev,
+                max_tokens=max_tok,
+            )
 
         duration_ms = int((time.time() - attempt_start) * 1000)
 
@@ -201,7 +194,7 @@ def main():
     parser.add_argument(
         "--test",
         action="store_true",
-        help="Run a quick smoke-test: 10 sequences, max 2 attempts each, results in results/test/",
+        help="Run a quick smoke-test: 10 sequences, max 3 attempts each, results in results/test/",
     )
     args = parser.parse_args()
 

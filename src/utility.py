@@ -174,16 +174,6 @@ def generate_strategy_prompt(sequence):
     original_label_str = _LABEL_MAP[sequence.original_label].upper()
     target_label_str = _LABEL_MAP[1 - sequence.original_label].upper()
     best = _find_best_attempt(sequence) if sequence.attempts else None
-    recap = (
-        "Recap\n"
-        f"Original AI prediction: {original_label_str} "
-        f"({sequence.original_confidence:.2f}%)\n"
-    )
-    for idx, attempt in enumerate(sequence.attempts, 1):
-        recap += (
-            f"Attempt {idx}: {_LABEL_MAP[attempt.label].upper()} "
-            f"({attempt.confidence:.2f}%)\n"
-        )
 
     return (
         "You have completed the main task of the study. "
