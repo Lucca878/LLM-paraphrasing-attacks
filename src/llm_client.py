@@ -11,6 +11,7 @@ from config import (
     LLM_ARCHITECTURES,
     QWEN_MAXTOK_MULTIPLIER,
     QWEN_MAXTOK_ADDON,
+    TOKENS_PER_WORD,
 )
 
 
@@ -63,11 +64,11 @@ def _clean_response(text: str) -> str:
 def words_to_token_range(text: str, tolerance: int, architecture: str) -> tuple[int, int]:
     """Return (min_tokens, max_tokens) based on cl100k token count ± tolerance.
 
-    The token tolerance is scaled by 1.3 to match the word tolerance in the
-    developer prompt (English prose averages ~1.3 tokens/word).
+    The token tolerance is scaled by TOKENS_PER_WORD to match the word
+    tolerance in the developer prompt.
     """
     orig = count_tokens_exact(text)
-    tok_tolerance = round(tolerance * 1.3)
+    tok_tolerance = round(tolerance * TOKENS_PER_WORD)
     min_tok = max(1, orig - tok_tolerance)
     max_tok = orig + tok_tolerance
 

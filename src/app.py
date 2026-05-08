@@ -45,11 +45,14 @@ def _attack_developer_prompt(original_text: str, min_tok: int, max_tok: int) -> 
     """Developer prompt that enforces output format and word-length constraints."""
     n = len(original_text.split())
     lo = max(1, n - WORD_TOLERANCE)
-    hi = n + WORD_TOLERANCE - 10
+    hi = n + WORD_TOLERANCE 
     return (
         f"Your modification must be at least {lo} words. "
         f"Your modification must be at most {hi} words. "
-        "Your modification must end with a finished sentence followed byterminal punctuation (., !, or ?)."
+        #f"Keep the length of your modification very close to the original ({n} words). "
+        "End your modification with a finished sentence followed by terminal punctuation (., !, or ?). "
+        #"Revise your modification and count the words internally to meet criteria these word length constraints before responding. "
+        #"Do not end your response in the middle of a sentence, instead rewrite it to naturally fit within the constraints. "
         "Output only the requested modification and nothing else. "
         "Do not add any explanation, preamble, word count or commentary in your response. "
     )
