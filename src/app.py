@@ -45,7 +45,7 @@ def _attack_developer_prompt(original_text: str, min_tok: int, max_tok: int) -> 
     """Developer prompt that enforces output format and word-length constraints."""
     n = len(original_text.split())
     lo = max(1, n - WORD_TOLERANCE)
-    hi = n + WORD_TOLERANCE 
+    hi = n + WORD_TOLERANCE - 5 # -5 to give the model some buffer to naturally end with a complete sentence and punctuation within the token limit, since strict max_tok can cause abrupt cutoffs that lead to invalid output and wasted attempts. This way we still encourage a similar length while allowing for more natural completions.
     return (
         f"Your modification must be at least {lo} words. "
         f"Your modification must be at most {hi} words. "

@@ -80,7 +80,7 @@ def generate_attack_prompt(sequence):
     target_label_str   = _LABEL_MAP[1 - sequence.original_label]
     orig_words = len(sequence.original_text.split())
     min_words  = max(1, orig_words - WORD_TOLERANCE)
-    max_words  = orig_words + WORD_TOLERANCE
+    max_words  = orig_words + WORD_TOLERANCE - 5  # give the model some buffer to naturally end with a complete sentence and punctuation
 
     prompt = (
         "In this study, you will read 1 short statement written by participants in another study. "
