@@ -45,7 +45,7 @@ def _attack_developer_prompt(original_text: str) -> str:
     """Developer prompt that enforces output format and word-length constraints."""
     n = len(original_text.split())
     lo = max(1, n - WORD_TOLERANCE)
-    hi = n + WORD_TOLERANCE - 5  # Keep slight headroom so outputs can end naturally.
+    hi = n + WORD_TOLERANCE - 10 # -10 Keep slight headroom so outputs can end naturally.
     return (
         f"STRICT OUTPUT RULES:\n"
         f"- Output ONLY the requested modification. No preamble, no commentary, no word count.\n"
