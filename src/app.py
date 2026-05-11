@@ -47,14 +47,11 @@ def _attack_developer_prompt(original_text: str, min_tok: int, max_tok: int) -> 
     lo = max(1, n - WORD_TOLERANCE)
     hi = n + WORD_TOLERANCE - 5 # -5 to give the model some buffer to naturally end with a complete sentence and punctuation within the token limit, since strict max_tok can cause abrupt cutoffs that lead to invalid output and wasted attempts. This way we still encourage a similar length while allowing for more natural completions.
     return (
-        f"Your modification must be at least {lo} words. "
-        f"Your modification must be at most {hi} words. "
-        #f"Keep the length of your modification very close to the original ({n} words). "
-        "End your modification with a finished sentence followed by terminal punctuation (., !, or ?). "
-        #"Revise your modification and count the words internally to meet criteria these word length constraints before responding. "
-        #"Do not end your response in the middle of a sentence, instead rewrite it to naturally fit within the constraints. "
-        "Output only the requested modification and nothing else. "
-        "Do not add any explanation, preamble, word count or commentary in your response. "
+        f"STRICT OUTPUT RULES:\n"
+        f"- Output ONLY the rewritten statement. No preamble, no commentary, no word count.\n"
+        f"- The rewrite must be between {lo} and {hi} words.\n"
+        f"- End with a complete sentence and terminal punctuation (. ! or ?).\n"
+        f"- Never stop mid-sentence."
     )
 
 

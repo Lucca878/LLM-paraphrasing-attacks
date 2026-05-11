@@ -124,7 +124,7 @@ def generate_attack_prompt(sequence):
         f"Confidence score: {sequence.original_confidence:.2f}%\n\n"
         f"Task goal\n\nModify the statement so that it appears {target_label_str.upper()} to the AI "
         "while preserving meaning, grammar, and naturalness.\n\n"
-        f"Your modification must be at least {min_words} words and at most {max_words} words.\n"
+        #f"Your modification must be at least {min_words} words and at most {max_words} words.\n"
         f"You have used {len(sequence.attempts)} of {MAX_ATTEMPTS} attempts.\n"
     )
 
