@@ -39,26 +39,31 @@ def _clean_response(text: str) -> str:
     """Strip model meta-output and return only the paraphrase text."""
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
 
-    # # Some models append markdown reporting blocks (word counts, key adjustments).
-    # lines = text.splitlines()
-    # cutoff = None
-    # marker = re.compile(
-    #     r"^(---+|\*\*\s*word\s*count\s*\*\*|word\s*count\s*:|\*\*\s*key\s*adjustments\s*\*\*|key\s*adjustments\s*:)",
-    #     flags=re.IGNORECASE,
-    # )
-    # for i, line in enumerate(lines):
-    #     if marker.match(line.strip()):
-    #         cutoff = i
-    #         break
-
-    # if cutoff is not None:
-    #     lines = lines[:cutoff]
-
-    # cleaned = "\n".join(lines).strip()
-    # cleaned = re.sub(r"\n?\(\d+\s+words?\)\s*$", "", cleaned, flags=re.IGNORECASE).strip()
-    # return cleaned
-
     return text.strip()
+
+
+def _is_transient_validation_error(exc: Exception) -> bool:
+    """Detect OpenRouter validation wrappers for transient upstream errors."""
+    msg = str(exc).lower()
+    transient_markers = (
+        "code': 429",
+        'code": 429',
+        "code': 502",
+        'code": 502',
+        "code': 503",
+        'code": 503',
+        "code': 504",
+        'code": 504',
+        "code': 524",
+        'code": 524',
+        "code': 529",
+        'code": 529',
+        "timed out",
+        "request timeout",
+        "provider overloaded",
+        "provider aborted",
+    )
+    return any(marker in msg for marker in transient_markers)
 
 
 def words_to_token_range(text: str, tolerance: int, architecture: str) -> tuple[int, int]:
@@ -105,9 +110,22 @@ def call_llm(
         try:
             response = client.chat.send(**kwargs)
             return _clean_response(response.choices[0].message.content)
-        except openrouter_errors.TooManyRequestsResponseError:
+        except (
+            openrouter_errors.TooManyRequestsResponseError,
+            openrouter_errors.RequestTimeoutResponseError,
+            openrouter_errors.BadGatewayResponseError,
+            openrouter_errors.ServiceUnavailableResponseError,
+            openrouter_errors.ProviderOverloadedResponseError,
+            openrouter_errors.EdgeNetworkTimeoutResponseError,
+        ):
             if attempt == max_retries - 1:
                 raise
             wait_seconds = 2 ** attempt
-            print(f"    [rate-limit] provider throttled request; retrying in {wait_seconds}s...")
+            print(f"    [transient] provider/network issue; retrying in {wait_seconds}s...")
+            time.sleep(wait_seconds)
+        except openrouter_errors.ResponseValidationError as exc:
+            if not _is_transient_validation_error(exc) or attempt == max_retries - 1:
+                raise
+            wait_seconds = 2 ** attempt
+            print(f"    [transient-parse] upstream error wrapped by SDK; retrying in {wait_seconds}s...")
             time.sleep(wait_seconds)

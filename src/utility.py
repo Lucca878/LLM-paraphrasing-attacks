@@ -1,6 +1,5 @@
 import os
 
-import tiktoken
 import pandas as pd
 import numpy as np
 import torch
@@ -13,12 +12,6 @@ from dao import AttackSequence, AttemptResult
 # Resolve .env relative to project root (one level above src/)
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(_ROOT, ".env"))
-
-_enc = tiktoken.get_encoding("cl100k_base")
-
-
-def _count_tokens(text: str) -> int:
-    return len(_enc.encode(text))
 
 # ---------------------------------------------------------------------------
 # Classifier (loaded once at import time)
@@ -124,7 +117,7 @@ def generate_attack_prompt(sequence):
         f"Confidence score: {sequence.original_confidence:.2f}%\n\n"
         f"Task goal\n\nModify the statement so that it appears {target_label_str.upper()} to the AI "
         "while preserving meaning, grammar, and naturalness.\n\n"
-        #f"Your modification must be at least {min_words} words and at most {max_words} words.\n"
+        f"Your modification must be at least {min_words} words and at most {max_words} words.\n"
         f"You have used {len(sequence.attempts)} of {MAX_ATTEMPTS} attempts.\n"
     )
 

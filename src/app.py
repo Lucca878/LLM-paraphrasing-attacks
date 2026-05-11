@@ -41,17 +41,16 @@ def _attack_system_prompt() -> str:
     )
 
 
-def _attack_developer_prompt(original_text: str, min_tok: int, max_tok: int) -> str:
+def _attack_developer_prompt(original_text: str) -> str:
     """Developer prompt that enforces output format and word-length constraints."""
     n = len(original_text.split())
     lo = max(1, n - WORD_TOLERANCE)
-    hi = n + WORD_TOLERANCE - 5 # -5 to give the model some buffer to naturally end with a complete sentence and punctuation within the token limit, since strict max_tok can cause abrupt cutoffs that lead to invalid output and wasted attempts. This way we still encourage a similar length while allowing for more natural completions.
+    hi = n + WORD_TOLERANCE - 5  # Keep slight headroom so outputs can end naturally.
     return (
         f"STRICT OUTPUT RULES:\n"
-        f"- Output ONLY the rewritten statement. No preamble, no commentary, no word count.\n"
-        f"- The rewrite must be between {lo} and {hi} words.\n"
+        f"- Output ONLY the requested modification. No preamble, no commentary, no word count.\n"
+        f"- The modification must be at least {lo} words and at most {hi} words.\n"
         f"- End with a complete sentence and terminal punctuation (. ! or ?).\n"
-        f"- Never stop mid-sentence."
     )
 
 
@@ -90,7 +89,7 @@ def run_attack_sequence(
     )
     sequence.session_start = start_iso
 
-    # Token range derived from architecture-aware token counting
+    # Token range derived from shared cl100k token counting.
     min_tok, max_tok = words_to_token_range(
         sequence.original_text,
         WORD_TOLERANCE,
@@ -100,7 +99,7 @@ def run_attack_sequence(
     for _ in range(max_attempts):
         prompt = generate_attack_prompt(sequence)
         attack_sys = _attack_system_prompt()
-        attack_dev = _attack_developer_prompt(sequence.original_text, min_tok, max_tok)
+        attack_dev = _attack_developer_prompt(sequence.original_text)
         attempt_start = time.time()
         rewrite_text = call_llm(
             architecture,

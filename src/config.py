@@ -35,11 +35,10 @@ ARCH_SEEDS = {
 MAX_ATTEMPTS       = 10
 TEMPERATURE_MIN    = 0.1
 TEMPERATURE_MAX    = 1.0
-N_ATTACK_SEQUENCES = 325   # total sequences per architecture, to match human n
+N_ATTACK_SEQUENCES = 330   # total sequences per architecture, to match human n
 RANDOM_SEED        = 42    # for statement sampling (same statements across archs)
 WORD_TOLERANCE     = 20    # rewritten text must stay within +/- this many tokens
-TOKENS_PER_WORD    = 1.3 # grounded from text_truncated corpus: 38945 tokens / 33720 words -> ~1.155 tokens/word, used for prompt token budgeting
-MAX_LENGTH_REPROMPTS = 3   # retry count within the same attempt for length violations
+TOKENS_PER_WORD    = 1.3   # token-to-word conversion factor used for max_tokens budgeting
 
 # Token-cap tuning per architecture
 QWEN_MAXTOK_MULTIPLIER = 1.0
