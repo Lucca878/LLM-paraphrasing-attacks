@@ -1,5 +1,8 @@
 import argparse
+import csv
 import datetime
+import glob
+import os
 import time
 import uuid
 
@@ -32,6 +35,23 @@ from utility import (
 
 load_dotenv()
 
+
+def _latest_results_csv(architecture: str, subdir: str | None = None) -> str | None:
+    """Return latest existing results CSV for an architecture, or None."""
+    base_dir = os.path.join("results", subdir) if subdir else "results"
+    pattern = os.path.join(base_dir, f"{architecture}_*.csv")
+    files = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
+    return files[0] if files else None
+
+
+def _count_csv_rows(path: str) -> int:
+    """Count data rows (excluding header) in an existing CSV file."""
+    rows = 0
+    with open(path, newline="") as fh:
+        for _ in csv.DictReader(fh):
+            rows += 1
+    return rows
+
 def _attack_system_prompt() -> str:
     """System prompt for attack role/context."""
     return (
@@ -49,6 +69,7 @@ def _attack_developer_prompt(original_text: str) -> str:
     return (
         f"STRICT OUTPUT RULES:\n"
         f"- Output ONLY the requested modification. No preamble, no commentary, no word count.\n"
+        f"- Use English only. Do not use non-Latin scripts or non-English words.\n"
         f"- The modification must be at least {lo} words and at most {hi} words.\n"
         f"- End with a complete sentence and terminal punctuation (. ! or ?).\n"
     )
@@ -160,7 +181,7 @@ def main():
         "--start-index",
         type=int,
         default=0,
-        help="Resume from this sequence index (0-based, for crash recovery)",
+        help="Resume from this sequence index (0-based). If > 0, appends to latest architecture CSV when available.",
     )
     parser.add_argument(
         "--test",
@@ -200,11 +221,29 @@ def main():
         arch_rng     = np.random.default_rng(ARCH_SEEDS[architecture])
         temperatures = arch_rng.uniform(TEMPERATURE_MIN, TEMPERATURE_MAX, size=args.n_sequences)
 
-        csv_path = init_results_csv(architecture, timestamp, subdir=results_subdir)
-        print(f"Results -> {csv_path}")
+        existing_rows = 0
+        if args.start_index > 0:
+            resume_path = _latest_results_csv(architecture, results_subdir)
+            if resume_path:
+                csv_path = resume_path
+                existing_rows = _count_csv_rows(csv_path)
+                print(f"Resuming -> {csv_path} (existing rows: {existing_rows})")
+            else:
+                csv_path = init_results_csv(architecture, timestamp, subdir=results_subdir)
+                print(f"[resume warning] no existing file found, creating new -> {csv_path}")
+        else:
+            csv_path = init_results_csv(architecture, timestamp, subdir=results_subdir)
+            print(f"Results -> {csv_path}")
+
+        effective_start = max(args.start_index, existing_rows)
+        if effective_start > args.start_index:
+            print(
+                f"[resume adjust] start-index={args.start_index} but file already has {existing_rows} rows; "
+                f"continuing from index {effective_start}"
+            )
 
         for i, (_, row) in enumerate(sampled.iterrows()):
-            if i < args.start_index:
+            if i < effective_start:
                 continue
 
             temperature = float(temperatures[i])
